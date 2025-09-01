@@ -1,0 +1,1201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Self-Journaling</title>
+    <style>
+        /* Reset and base styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary-bg: #0B1020;
+            --secondary-bg: #05070F;
+            --star-color: #FFD54F;
+            --text-primary: #ffffff;
+            --text-secondary: #b0b8c1;
+            --glass-bg: rgba(255, 255, 255, 0.05);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --space-glow: rgba(100, 149, 237, 0.7);
+            --mood-happy: #FFD54F;
+            --mood-neutral: #9E9E9E;
+            --mood-sad: #64B5F6;
+            --mood-energetic: #FF7043;
+            --mood-anxious: #BA68C8;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, var(--primary-bg) 0%, var(--secondary-bg) 100%);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        /* Space background with stars */
+        .stars-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            z-index: -1;
+        }
+
+        .stars-layer {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+        }
+
+        .star {
+            position: absolute;
+            background-color: white;
+            border-radius: 50%;
+            animation: twinkle 3s infinite;
+        }
+
+        .star.small {
+            width: 1px;
+            height: 1px;
+        }
+
+        .star.medium {
+            width: 2px;
+            height: 2px;
+        }
+
+        .star.large {
+            width: 3px;
+            height: 3px;
+        }
+
+        @keyframes twinkle {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 1; }
+        }
+
+        .shooting-star {
+            position: absolute;
+            width: 2px;
+            height: 2px;
+            background-color: white;
+            border-radius: 50%;
+            box-shadow: 0 0 10px 2px rgba(255, 255, 255, 0.8);
+            animation: shoot 5s linear infinite;
+        }
+
+        @keyframes shoot {
+            0% {
+                transform: translateX(0) translateY(0);
+                opacity: 1;
+            }
+            100% {
+                transform: translateX(-500px) translateY(300px);
+                opacity: 0;
+            }
+        }
+
+        /* Planet in top right */
+        .planet {
+            position: fixed;
+            top: 80px;
+            right: 80px;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 30% 30%, #9C27B0, #3F51B5);
+            box-shadow: 0 0 20px rgba(156, 39, 176, 0.5);
+            animation: orbit 120s linear infinite;
+            z-index: -1;
+        }
+
+        @keyframes orbit {
+            0% { transform: rotate(0deg) translateX(100px) rotate(0deg); }
+            100% { transform: rotate(360deg) translateX(100px) rotate(-360deg); }
+        }
+
+        /* Header styles */
+        header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            padding: 15px 20px;
+            background: rgba(11, 16, 32, 0.8);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--glass-border);
+            z-index: 100;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .logo-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .logo {
+            width: 30px;
+            height: 30px;
+            background-color: var(--star-color);
+            clip-path: polygon(
+                50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%
+            );
+            animation: rotate 20s linear infinite;
+        }
+
+        @keyframes rotate {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        .controls {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .search-container {
+            position: relative;
+        }
+
+        .search-input {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 8px 15px;
+            color: var(--text-primary);
+            width: 200px;
+            transition: all 0.3s ease;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: var(--space-glow);
+            box-shadow: 0 0 5px rgba(100, 149, 237, 0.5);
+        }
+
+        .dropdown {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 8px;
+            padding: 8px 12px;
+            color: var(--text-primary);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-shadow: 0 0 5px var(--space-glow);
+        }
+
+        .dropdown:focus {
+            outline: none;
+            border-color: var(--space-glow);
+        }
+
+        .layout-toggle {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .toggle-switch {
+            position: relative;
+            width: 50px;
+            height: 24px;
+            background: var(--glass-bg);
+            border-radius: 12px;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+
+        .toggle-switch.active {
+            background: var(--space-glow);
+        }
+
+        .toggle-slider {
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 20px;
+            height: 20px;
+            background: white;
+            border-radius: 50%;
+            transition: transform 0.3s ease;
+        }
+
+        .toggle-switch.active .toggle-slider {
+            transform: translateX(26px);
+        }
+
+        .fab {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: var(--space-glow);
+            color: white;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(100, 149, 237, 0.4);
+            transition: all 0.3s ease;
+            z-index: 90;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .fab:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 16px rgba(100, 149, 237, 0.6);
+        }
+
+        /* Main content */
+        main {
+            padding: 100px 20px 20px;
+            min-height: 100vh;
+        }
+
+        .ribbons-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 20px;
+            max-width: 1400px;
+            margin: 0 auto;
+            transition: all 0.5s ease;
+        }
+
+        .ribbons-container.random {
+            display: block;
+            position: relative;
+            height: calc(100vh - 120px);
+        }
+
+        /* Ribbon flyer styles */
+        .ribbon {
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 15px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            transform-origin: center;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .ribbons-container.random .ribbon {
+            position: absolute;
+            width: 250px;
+        }
+
+        .ribbon:hover {
+            transform: translateY(-5px) scale(1.02);
+            box-shadow: 0 8px 20px rgba(100, 149, 237, 0.3);
+        }
+
+        .ribbon.dragging {
+            cursor: grabbing;
+            opacity: 0.8;
+            z-index: 1000;
+            transform: scale(1.05);
+        }
+
+        .ribbon-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 10px;
+        }
+
+        .ribbon-title {
+            font-weight: 600;
+            font-size: 1rem;
+            margin-bottom: 5px;
+            flex: 1;
+        }
+
+        .ribbon-date {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            white-space: nowrap;
+        }
+
+        .ribbon-mood {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            margin-bottom: 8px;
+            font-size: 0.875rem;
+        }
+
+        .mood-icon {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+        }
+
+        .mood-icon.happy { background-color: var(--mood-happy); }
+        .mood-icon.neutral { background-color: var(--mood-neutral); }
+        .mood-icon.sad { background-color: var(--mood-sad); }
+        .mood-icon.energetic { background-color: var(--mood-energetic); }
+        .mood-icon.anxious { background-color: var(--mood-anxious); }
+
+        .ribbon-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            margin-top: 8px;
+        }
+
+        .tag {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 2px 8px;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        .drag-handle {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            width: 20px;
+            height: 20px;
+            cursor: grab;
+            opacity: 0.3;
+            transition: opacity 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .drag-handle:hover {
+            opacity: 0.7;
+        }
+
+        .drag-handle::before {
+            content: '⋯';
+            font-size: 16px;
+            color: var(--text-primary);
+        }
+
+        .ribbon.dragging .drag-handle {
+            cursor: grabbing;
+        }
+
+        /* Modal styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(5px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 200;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .modal {
+            background: var(--glass-bg);
+            backdrop-filter: blur(15px);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 25px;
+            width: 90%;
+            max-width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            transform: scale(0.9);
+            transition: transform 0.3s ease;
+        }
+
+        .modal-overlay.active .modal {
+            transform: scale(1);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 1.5rem;
+            cursor: pointer;
+            transition: color 0.3s ease;
+        }
+
+        .close-btn:hover {
+            color: var(--text-primary);
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            font-size: 0.875rem;
+        }
+
+        .form-input, .form-select, .form-textarea {
+            width: 100%;
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 8px;
+            padding: 10px;
+            color: var(--text-primary);
+            transition: all 0.3s ease;
+        }
+
+        .form-input:focus, .form-select:focus, .form-textarea:focus {
+            outline: none;
+            border-color: var(--space-glow);
+            box-shadow: 0 0 5px rgba(100, 149, 237, 0.3);
+        }
+
+        .form-textarea {
+            min-height: 120px;
+            resize: vertical;
+        }
+
+        .form-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border-radius: 8px;
+            border: none;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: var(--space-glow);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: rgba(100, 149, 237, 0.9);
+        }
+
+        .btn-secondary {
+            background: var(--glass-bg);
+            color: var(--text-primary);
+            border: 1px solid var(--glass-border);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .btn-danger {
+            background: rgba(244, 67, 54, 0.8);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: rgba(244, 67, 54, 1);
+        }
+
+        /* Toast notification */
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
+            border-radius: 8px;
+            padding: 15px 20px;
+            color: var(--text-primary);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+            z-index: 300;
+        }
+
+        .toast.show {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+            visibility: visible;
+        }
+
+        /* Responsive design */
+        @media (max-width: 768px) {
+            .controls {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .search-input {
+                width: 150px;
+            }
+
+            .fab {
+                bottom: 20px;
+                right: 20px;
+                width: 50px;
+                height: 50px;
+                font-size: 20px;
+            }
+
+            .ribbons-container {
+                grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            }
+
+            .ribbons-container.random .ribbon {
+                width: 200px;
+            }
+        }
+
+        /* Reduced motion preferences */
+        @media (prefers-reduced-motion: reduce) {
+            * {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Space background -->
+    <div class="stars-container" id="starsContainer"></div>
+    <div class="planet"></div>
+
+    <!-- Header -->
+    <header>
+        <div class="logo-container">
+            <div class="logo"></div>
+            <h1>Self-Journaling</h1>
+        </div>
+        <div class="controls">
+            <div class="search-container">
+                <input type="text" class="search-input" id="searchInput" placeholder="Search entries...">
+            </div>
+            <select class="dropdown" id="moodFilter">
+                <option value="all">All Moods</option>
+                <option value="happy">Happy</option>
+                <option value="neutral">Neutral</option>
+                <option value="sad">Sad</option>
+                <option value="energetic">Energetic</option>
+                <option value="anxious">Anxious</option>
+            </select>
+            <select class="dropdown" id="sortOrder">
+                <option value="newest">Newest</option>
+                <option value="oldest">Oldest</option>
+            </select>
+            <div class="layout-toggle">
+                <span>Grid</span>
+                <div class="toggle-switch" id="layoutToggle">
+                    <div class="toggle-slider"></div>
+                </div>
+                <span>Random</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main content -->
+    <main>
+        <div class="ribbons-container" id="ribbonsContainer"></div>
+    </main>
+
+    <!-- Floating Action Button -->
+    <button class="fab" id="fabBtn">+</button>
+
+    <!-- Modal -->
+    <div class="modal-overlay" id="modalOverlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 class="modal-title" id="modalTitle">New Entry</h2>
+                <button class="close-btn" id="closeModal">&times;</button>
+            </div>
+            <form id="journalForm">
+                <div class="form-group">
+                    <label class="form-label" for="title">Title *</label>
+                    <input type="text" class="form-input" id="title" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="date">Date</label>
+                    <input type="date" class="form-input" id="date">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="mood">Mood</label>
+                    <select class="form-select" id="mood">
+                        <option value="happy">Happy</option>
+                        <option value="neutral">Neutral</option>
+                        <option value="sad">Sad</option>
+                        <option value="energetic">Energetic</option>
+                        <option value="anxious">Anxious</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="tags">Tags (comma separated)</label>
+                    <input type="text" class="form-input" id="tags" placeholder="e.g., work, personal, ideas">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="content">Content</label>
+                    <textarea class="form-textarea" id="content" placeholder="Write your thoughts here..."></textarea>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" id="cancelBtn">Cancel</button>
+                    <button type="button" class="btn btn-danger" id="deleteBtn" style="display: none;">Delete</button>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Toast notification -->
+    <div class="toast" id="toast"></div>
+
+    <script>
+        // Journal app functionality
+        document.addEventListener('DOMContentLoaded', () => {
+            // Initialize variables
+            const starsContainer = document.getElementById('starsContainer');
+            const ribbonsContainer = document.getElementById('ribbonsContainer');
+            const searchInput = document.getElementById('searchInput');
+            const moodFilter = document.getElementById('moodFilter');
+            const sortOrder = document.getElementById('sortOrder');
+            const layoutToggle = document.getElementById('layoutToggle');
+            const fabBtn = document.getElementById('fabBtn');
+            const modalOverlay = document.getElementById('modalOverlay');
+            const modalTitle = document.getElementById('modalTitle');
+            const closeModal = document.getElementById('closeModal');
+            const cancelBtn = document.getElementById('cancelBtn');
+            const deleteBtn = document.getElementById('deleteBtn');
+            const journalForm = document.getElementById('journalForm');
+            const toast = document.getElementById('toast');
+            
+            let entries = [];
+            let currentEntryId = null;
+            let isRandomLayout = false;
+            let draggedElement = null;
+            let dragOffset = { x: 0, y: 0 };
+
+            // Create starfield background
+            function createStarfield() {
+                // Create multiple layers for parallax effect
+                for (let layer = 0; layer < 3; layer++) {
+                    const layerDiv = document.createElement('div');
+                    layerDiv.className = 'stars-layer';
+                    layerDiv.style.transform = `translateZ(${layer * -10}px) scale(${1 + layer * 0.2})`;
+                    
+                    const starCount = 50 + layer * 50;
+                    
+                    for (let i = 0; i < starCount; i++) {
+                        const star = document.createElement('div');
+                        star.className = `star ${['small', 'medium', 'large'][Math.floor(Math.random() * 3)]}`;
+                        star.style.left = `${Math.random() * 100}%`;
+                        star.style.top = `${Math.random() * 100}%`;
+                        star.style.animationDelay = `${Math.random() * 3}s`;
+                        star.style.animationDuration = `${3 + Math.random() * 2}s`;
+                        layerDiv.appendChild(star);
+                    }
+                    
+                    starsContainer.appendChild(layerDiv);
+                }
+                
+                // Create shooting stars
+                for (let i = 0; i < 3; i++) {
+                    const shootingStar = document.createElement('div');
+                    shootingStar.className = 'shooting-star';
+                    shootingStar.style.left = `${Math.random() * 100}%`;
+                    shootingStar.style.top = `${Math.random() * 50}%`;
+                    shootingStar.style.animationDelay = `${Math.random() * 5}s`;
+                    shootingStar.style.animationDuration = `${5 + Math.random() * 5}s`;
+                    starsContainer.appendChild(shootingStar);
+                }
+            }
+
+            // Initialize or load entries from localStorage
+            function initializeEntries() {
+                const storedEntries = localStorage.getItem('journalEntries');
+                if (storedEntries) {
+                    entries = JSON.parse(storedEntries);
+                } else {
+                    // Create 7 dummy entries
+                    entries = [
+                        {
+                            id: generateId(),
+                            title: "First Day of Spring",
+                            date: new Date().toISOString().split('T')[0],
+                            mood: "happy",
+                            tags: ["season", "nature"],
+                            content: "Today marks the first day of spring! The weather is perfect and I can feel the energy in the air."
+                        },
+                        {
+                            id: generateId(),
+                            title: "Project Deadline Approaching",
+                            date: new Date(Date.now() - 86400000).toISOString().split('T')[0],
+                            mood: "anxious",
+                            tags: ["work", "deadline"],
+                            content: "The project deadline is approaching and I'm feeling the pressure. Need to organize my time better."
+                        },
+                        {
+                            id: generateId(),
+                            title: "Weekend Adventure",
+                            date: new Date(Date.now() - 172800000).toISOString().split('T')[0],
+                            mood: "energetic",
+                            tags: ["adventure", "friends"],
+                            content: "Had an amazing weekend with friends! We went hiking and discovered a beautiful hidden waterfall."
+                        },
+                        {
+                            id: generateId(),
+                            title: "Reflecting on Life",
+                            date: new Date(Date.now() - 259200000).toISOString().split('T')[0],
+                            mood: "neutral",
+                            tags: ["reflection", "life"],
+                            content: "Spent some time today reflecting on where I am in life and where I want to go. It's good to pause and think sometimes."
+                        },
+                        {
+                            id: generateId(),
+                            title: "Rainy Day Thoughts",
+                            date: new Date(Date.now() - 345600000).toISOString().split('T')[0],
+                            mood: "sad",
+                            tags: ["weather", "emotions"],
+                            content: "It's been raining all day. The weather matches my mood as I've been feeling a bit down lately."
+                        },
+                        {
+                            id: generateId(),
+                            title: "New Recipe Success",
+                            date: new Date(Date.now() - 432000000).toISOString().split('T')[0],
+                            mood: "happy",
+                            tags: ["cooking", "achievement"],
+                            content: "Tried a new recipe today and it turned out amazing! There's something satisfying about creating something delicious."
+                        },
+                        {
+                            id: generateId(),
+                            title: "Morning Meditation",
+                            date: new Date(Date.now() - 518400000).toISOString().split('T')[0],
+                            mood: "neutral",
+                            tags: ["wellness", "meditation"],
+                            content: "Started my day with a 20-minute meditation session. It really helps set a positive tone for the day."
+                        }
+                    ];
+                    saveEntries();
+                }
+                renderEntries();
+            }
+
+            // Generate unique ID
+            function generateId() {
+                return Date.now().toString(36) + Math.random().toString(36).substr(2);
+            }
+
+            // Save entries to localStorage
+            function saveEntries() {
+                localStorage.setItem('journalEntries', JSON.stringify(entries));
+            }
+
+            // Render entries based on current filters and layout
+            function renderEntries() {
+                let filteredEntries = [...entries];
+                
+                // Apply search filter
+                const searchTerm = searchInput.value.toLowerCase();
+                if (searchTerm) {
+                    filteredEntries = filteredEntries.filter(entry => 
+                        entry.title.toLowerCase().includes(searchTerm) || 
+                        entry.content.toLowerCase().includes(searchTerm)
+                    );
+                }
+                
+                // Apply mood filter
+                const selectedMood = moodFilter.value;
+                if (selectedMood !== 'all') {
+                    filteredEntries = filteredEntries.filter(entry => entry.mood === selectedMood);
+                }
+                
+                // Apply sort
+                if (sortOrder.value === 'newest') {
+                    filteredEntries.sort((a, b) => new Date(b.date) - new Date(a.date));
+                } else {
+                    filteredEntries.sort((a, b) => new Date(a.date) - new Date(b.date));
+                }
+                
+                // Clear container
+                ribbonsContainer.innerHTML = '';
+                
+                // Render entries
+                filteredEntries.forEach((entry, index) => {
+                    const ribbon = createRibbonElement(entry);
+                    ribbonsContainer.appendChild(ribbon);
+                    
+                    // If random layout, position randomly
+                    if (isRandomLayout) {
+                        positionRibbonRandomly(ribbon, index);
+                    }
+                });
+            }
+
+            // Create ribbon element
+            function createRibbonElement(entry) {
+                const ribbon = document.createElement('div');
+                ribbon.className = 'ribbon';
+                ribbon.dataset.id = entry.id;
+                
+                // Format date
+                const date = new Date(entry.date);
+                const formattedDate = date.toLocaleDateString('en-US', { 
+                    month: 'short', 
+                    day: 'numeric',
+                    year: 'numeric'
+                });
+                
+                // Create tags HTML
+                const tagsHtml = entry.tags.map(tag => `<span class="tag">${tag}</span>`).join('');
+                
+                // Set ribbon content
+                ribbon.innerHTML = `
+                    <div class="drag-handle"></div>
+                    <div class="ribbon-header">
+                        <div class="ribbon-title">${entry.title}</div>
+                        <div class="ribbon-date">${formattedDate}</div>
+                    </div>
+                    <div class="ribbon-mood">
+                        <div class="mood-icon ${entry.mood}"></div>
+                        <span>${entry.mood.charAt(0).toUpperCase() + entry.mood.slice(1)}</span>
+                    </div>
+                    <div class="ribbon-tags">${tagsHtml}</div>
+                `;
+                
+                // Add click event
+                ribbon.addEventListener('click', (e) => {
+                    // Don't open if clicking on drag handle
+                    if (!e.target.closest('.drag-handle')) {
+                        openEntryModal(entry.id);
+                    }
+                });
+                
+                // Add drag events
+                const dragHandle = ribbon.querySelector('.drag-handle');
+                dragHandle.addEventListener('mousedown', (e) => startDrag(e, ribbon));
+                
+                return ribbon;
+            }
+
+            // Position ribbon randomly in random layout
+            function positionRibbonRandomly(ribbon, index) {
+                const containerRect = ribbonsContainer.getBoundingClientRect();
+                const ribbonRect = ribbon.getBoundingClientRect();
+                
+                // Calculate available space with margins
+                const maxX = containerRect.width - ribbonRect.width - 40;
+                const maxY = containerRect.height - ribbonRect.height - 40;
+                
+                // Generate random position
+                let x, y;
+                let attempts = 0;
+                let overlapping = true;
+                
+                // Try to avoid overlapping
+                while (overlapping && attempts < 50) {
+                    x = Math.random() * maxX;
+                    y = Math.random() * maxY;
+                    
+                    overlapping = false;
+                    const existingRibbons = ribbonsContainer.querySelectorAll('.ribbon');
+                    
+                    for (const existingRibbon of existingRibbons) {
+                        if (existingRibbon !== ribbon) {
+                            const existingRect = existingRibbon.getBoundingClientRect();
+                            const containerOffset = {
+                                left: existingRect.left - containerRect.left,
+                                top: existingRect.top - containerRect.top
+                            };
+                            
+                            // Check if new position would overlap
+                            if (
+                                x < containerOffset.left + existingRect.width + 20 &&
+                                x + ribbonRect.width + 20 > containerOffset.left &&
+                                y < containerOffset.top + existingRect.height + 20 &&
+                                y + ribbonRect.height + 20 > containerOffset.top
+                            ) {
+                                overlapping = true;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    attempts++;
+                }
+                
+                // Apply position with slight random rotation
+                const rotation = (Math.random() - 0.5) * 6; // -3 to 3 degrees
+                const scale = 0.9 + Math.random() * 0.2; // 0.9 to 1.1
+                
+                ribbon.style.left = `${x}px`;
+                ribbon.style.top = `${y}px`;
+                ribbon.style.transform = `rotate(${rotation}deg) scale(${scale})`;
+                ribbon.style.zIndex = Math.floor(Math.random() * 10);
+            }
+
+            // Start dragging
+            function startDrag(e, ribbon) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                draggedElement = ribbon;
+                draggedElement.classList.add('dragging');
+                
+                const rect = ribbon.getBoundingClientRect();
+                const containerRect = ribbonsContainer.getBoundingClientRect();
+                
+                // Calculate offset from mouse to element top-left
+                dragOffset.x = e.clientX - rect.left;
+                dragOffset.y = e.clientY - rect.top;
+                
+                // Add event listeners
+                document.addEventListener('mousemove', drag);
+                document.addEventListener('mouseup', stopDrag);
+            }
+
+            // Drag element
+            function drag(e) {
+                if (!draggedElement) return;
+                
+                const containerRect = ribbonsContainer.getBoundingClientRect();
+                const ribbonRect = draggedElement.getBoundingClientRect();
+                
+                // Calculate new position with offset
+                let newX = e.clientX - containerRect.left - dragOffset.x;
+                let newY = e.clientY - containerRect.top - dragOffset.y;
+                
+                // Constrain to container bounds
+                newX = Math.max(0, Math.min(newX, containerRect.width - ribbonRect.width));
+                newY = Math.max(0, Math.min(newY, containerRect.height - ribbonRect.height));
+                
+                // Apply position
+                draggedElement.style.left = `${newX}px`;
+                draggedElement.style.top = `${newY}px`;
+            }
+
+            // Stop dragging
+            function stopDrag() {
+                if (draggedElement) {
+                    draggedElement.classList.remove('dragging');
+                    draggedElement = null;
+                }
+                
+                document.removeEventListener('mousemove', drag);
+                document.removeEventListener('mouseup', stopDrag);
+            }
+
+            // Open modal for new or existing entry
+            function openEntryModal(entryId = null) {
+                currentEntryId = entryId;
+                
+                if (entryId) {
+                    // Edit existing entry
+                    const entry = entries.find(e => e.id === entryId);
+                    if (entry) {
+                        modalTitle.textContent = 'Edit Entry';
+                        document.getElementById('title').value = entry.title;
+                        document.getElementById('date').value = entry.date;
+                        document.getElementById('mood').value = entry.mood;
+                        document.getElementById('tags').value = entry.tags.join(', ');
+                        document.getElementById('content').value = entry.content;
+                        deleteBtn.style.display = 'block';
+                    }
+                } else {
+                    // New entry
+                    modalTitle.textContent = 'New Entry';
+                    journalForm.reset();
+                    document.getElementById('date').value = new Date().toISOString().split('T')[0];
+                    deleteBtn.style.display = 'none';
+                }
+                
+                modalOverlay.classList.add('active');
+            }
+
+            // Close modal
+            function closeEntryModal() {
+                modalOverlay.classList.remove('active');
+                currentEntryId = null;
+            }
+
+            // Save entry
+            function saveEntry(e) {
+                e.preventDefault();
+                
+                const title = document.getElementById('title').value.trim();
+                if (!title) {
+                    showToast('Title is required');
+                    return;
+                }
+                
+                const date = document.getElementById('date').value;
+                const mood = document.getElementById('mood').value;
+                const tagsInput = document.getElementById('tags').value.trim();
+                const tags = tagsInput ? tagsInput.split(',').map(tag => tag.trim()) : [];
+                const content = document.getElementById('content').value.trim();
+                
+                if (currentEntryId) {
+                    // Update existing entry
+                    const entryIndex = entries.findIndex(e => e.id === currentEntryId);
+                    if (entryIndex !== -1) {
+                        entries[entryIndex] = {
+                            ...entries[entryIndex],
+                            title,
+                            date,
+                            mood,
+                            tags,
+                            content
+                        };
+                        showToast('Entry updated successfully');
+                    }
+                } else {
+                    // Create new entry
+                    const newEntry = {
+                        id: generateId(),
+                        title,
+                        date,
+                        mood,
+                        tags,
+                        content
+                    };
+                    entries.push(newEntry);
+                    showToast('Entry created successfully');
+                }
+                
+                saveEntries();
+                renderEntries();
+                closeEntryModal();
+            }
+
+            // Delete entry
+            function deleteEntry() {
+                if (currentEntryId && confirm('Are you sure you want to delete this entry?')) {
+                    entries = entries.filter(e => e.id !== currentEntryId);
+                    saveEntries();
+                    renderEntries();
+                    closeEntryModal();
+                    showToast('Entry deleted successfully');
+                }
+            }
+
+            // Show toast notification
+            function showToast(message) {
+                toast.textContent = message;
+                toast.classList.add('show');
+                
+                setTimeout(() => {
+                    toast.classList.remove('show');
+                }, 3000);
+            }
+
+            // Toggle layout
+            function toggleLayout() {
+                isRandomLayout = !isRandomLayout;
+                layoutToggle.classList.toggle('active', isRandomLayout);
+                ribbonsContainer.classList.toggle('random', isRandomLayout);
+                
+                if (isRandomLayout) {
+                    // Switch to random layout
+                    const ribbons = ribbonsContainer.querySelectorAll('.ribbon');
+                    ribbons.forEach((ribbon, index) => {
+                        // Get current position for smooth transition
+                        const rect = ribbon.getBoundingClientRect();
+                        const containerRect = ribbonsContainer.getBoundingClientRect();
+                        
+                        // Set current position as starting point
+                        ribbon.style.left = `${rect.left - containerRect.left}px`;
+                        ribbon.style.top = `${rect.top - containerRect.top}px`;
+                        
+                        // After a short delay, position randomly
+                        setTimeout(() => {
+                            positionRibbonRandomly(ribbon, index);
+                        }, 50);
+                    });
+                } else {
+                    // Switch to grid layout
+                    renderEntries();
+                }
+            }
+
+            // Event listeners
+            fabBtn.addEventListener('click', () => openEntryModal());
+            closeModal.addEventListener('click', closeEntryModal);
+            cancelBtn.addEventListener('click', closeEntryModal);
+            deleteBtn.addEventListener('click', deleteEntry);
+            journalForm.addEventListener('submit', saveEntry);
+            layoutToggle.addEventListener('click', toggleLayout);
+            
+            searchInput.addEventListener('input', renderEntries);
+            moodFilter.addEventListener('change', renderEntries);
+            sortOrder.addEventListener('change', renderEntries);
+            
+            // Close modal when clicking outside
+            modalOverlay.addEventListener('click', (e) => {
+                if (e.target === modalOverlay) {
+                    closeEntryModal();
+                }
+            });
+            
+            // Keyboard shortcuts
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && modalOverlay.classList.contains('active')) {
+                    closeEntryModal();
+                }
+            });
+            
+            // Initialize app
+            createStarfield();
+            initializeEntries();
+        });
+    </script>
+</body>
+</html>
