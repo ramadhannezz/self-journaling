@@ -7,8 +7,6 @@
     "build": "next build",
     "start": "next start -p 3000",
     "lint": "next lint",
-
-    
     "db:push": "prisma db push",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
@@ -49,6 +47,7 @@
     "@radix-ui/react-toggle-group": "^1.1.10",
     "@radix-ui/react-tooltip": "^1.2.7",
     "@reactuses/core": "^6.0.5",
+    "@supabase/supabase-js": "^2.56.1",
     "@tanstack/react-query": "^5.82.0",
     "@tanstack/react-table": "^8.21.3",
     "axios": "^1.10.0",
