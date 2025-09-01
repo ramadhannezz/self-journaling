@@ -700,7 +700,409 @@
     <!-- Toast notification -->
     <div class="toast" id="toast"></div>
 
-    <script>
+    <script type="module" id="supabase-init">
+  import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+  // GANTI dengan kredensial milikmu
+  window.SUPABASE_URL = "https://supabase.com/dashboard/project/tidvbzqlgqjeyvcjmonb";
+  window.SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRpZHZienFsZ3FqZXl2Y2ptb25iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYwOTE0MjYsImV4cCI6MjA3MTY2NzQyNn0.o8Ldxwm2F2Nn38ydBSrKb52NLFO0mVKw970UjqyaUPw";
+  window.supabase = createClient(window.SUPABASE_URL, window.SUPABASE_ANON);
+</script>
+
+<script>
+  // Journal app functionality (Supabase version, no localStorage)
+  document.addEventListener('DOMContentLoaded', () => {
+    // ===== DOM refs
+    const starsContainer   = document.getElementById('starsContainer');
+    const ribbonsContainer = document.getElementById('ribbonsContainer');
+    const searchInput      = document.getElementById('searchInput');
+    const moodFilter       = document.getElementById('moodFilter');
+    const sortOrder        = document.getElementById('sortOrder');
+    const layoutToggle     = document.getElementById('layoutToggle');
+    const fabBtn           = document.getElementById('fabBtn');
+    const modalOverlay     = document.getElementById('modalOverlay');
+    const modalTitle       = document.getElementById('modalTitle');
+    const closeModal       = document.getElementById('closeModal');
+    const cancelBtn        = document.getElementById('cancelBtn');
+    const deleteBtn        = document.getElementById('deleteBtn');
+    const journalForm      = document.getElementById('journalForm');
+    const toast            = document.getElementById('toast');
+
+    // ===== State
+    let entries = [];            // filled from Supabase
+    let currentEntryId = null;
+    let isRandomLayout = false;
+    let draggedElement = null;
+    let dragOffset = { x: 0, y: 0 };
+
+    // ===== Utils
+    function today(offsetDays = 0) {
+      const d = new Date();
+      d.setDate(d.getDate() + offsetDays);
+      return d.toISOString().split('T')[0]; // YYYY-MM-DD
+    }
+
+    function showToast(message) {
+      toast.textContent = message;
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 3000);
+    }
+
+    // ===== Space BG
+    function createStarfield() {
+      for (let layer = 0; layer < 3; layer++) {
+        const layerDiv = document.createElement('div');
+        layerDiv.className = 'stars-layer';
+        layerDiv.style.transform = `translateZ(${layer * -10}px) scale(${1 + layer * 0.2})`;
+        const starCount = 50 + layer * 50;
+
+        for (let i = 0; i < starCount; i++) {
+          const star = document.createElement('div');
+          star.className = `star ${['small','medium','large'][Math.floor(Math.random()*3)]}`;
+          star.style.left = `${Math.random()*100}%`;
+          star.style.top  = `${Math.random()*100}%`;
+          star.style.animationDelay    = `${Math.random()*3}s`;
+          star.style.animationDuration = `${3 + Math.random()*2}s`;
+          layerDiv.appendChild(star);
+        }
+        starsContainer.appendChild(layerDiv);
+      }
+      for (let i = 0; i < 3; i++) {
+        const shootingStar = document.createElement('div');
+        shootingStar.className = 'shooting-star';
+        shootingStar.style.left = `${Math.random()*100}%`;
+        shootingStar.style.top  = `${Math.random()*50}%`;
+        shootingStar.style.animationDelay    = `${Math.random()*5}s`;
+        shootingStar.style.animationDuration = `${5 + Math.random()*5}s`;
+        starsContainer.appendChild(shootingStar);
+      }
+    }
+
+    // ===== Supabase helpers (table: journal_entries_web)
+    async function dbList() {
+      const { data, error } = await window.supabase
+        .from('journal_entries_web')
+        .select('*')
+        .order('date', { ascending: false });
+
+      if (error) { console.error(error); showToast('Failed to load entries'); return []; }
+      return data ?? [];
+    }
+
+    async function dbInsert(entry) {
+      const { data, error } = await window.supabase
+        .from('journal_entries_web')
+        .insert(entry)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    }
+
+    async function dbUpdate(id, patch) {
+      const { data, error } = await window.supabase
+        .from('journal_entries_web')
+        .update(patch)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    }
+
+    async function dbDelete(id) {
+      const { error } = await window.supabase
+        .from('journal_entries_web')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+    }
+
+    // ===== Init
+    async function initializeEntries() {
+      entries = await dbList();
+
+      // (Optional) seed 7 items if empty
+      if (!entries.length) {
+        const seed = [
+          { title: "First Day of Spring",  date: today(0),  mood: "happy",     tags: ["season","nature"],      content: "..." },
+          { title: "Project Deadline Approaching", date: today(-1), mood: "anxious",   tags: ["work","deadline"],  content: "..." },
+          { title: "Weekend Adventure",    date: today(-2), mood: "energetic", tags: ["adventure","friends"],  content: "..." },
+          { title: "Reflecting on Life",   date: today(-3), mood: "neutral",   tags: ["reflection","life"],    content: "..." },
+          { title: "Rainy Day Thoughts",   date: today(-4), mood: "sad",       tags: ["weather","emotions"],   content: "..." },
+          { title: "New Recipe Success",   date: today(-5), mood: "happy",     tags: ["cooking","achievement"],content: "..." },
+          { title: "Morning Meditation",   date: today(-6), mood: "neutral",   tags: ["wellness","meditation"],content: "..." }
+        ];
+        for (const s of seed) await dbInsert(s);
+        entries = await dbList();
+      }
+
+      renderEntries();
+    }
+
+    // ===== UI render
+    function renderEntries() {
+      let filtered = [...entries];
+
+      const term = searchInput.value.toLowerCase();
+      if (term) {
+        filtered = filtered.filter(e =>
+          e.title.toLowerCase().includes(term) ||
+          (e.content || '').toLowerCase().includes(term)
+        );
+      }
+
+      const selectedMood = moodFilter.value;
+      if (selectedMood !== 'all') {
+        filtered = filtered.filter(e => e.mood === selectedMood);
+      }
+
+      if (sortOrder.value === 'newest') {
+        filtered.sort((a,b) => new Date(b.date) - new Date(a.date));
+      } else {
+        filtered.sort((a,b) => new Date(a.date) - new Date(b.date));
+      }
+
+      ribbonsContainer.innerHTML = '';
+
+      filtered.forEach((entry, idx) => {
+        const ribbon = createRibbonElement(entry);
+        ribbonsContainer.appendChild(ribbon);
+        if (isRandomLayout) positionRibbonRandomly(ribbon, idx);
+      });
+    }
+
+    function createRibbonElement(entry) {
+      const ribbon = document.createElement('div');
+      ribbon.className = 'ribbon';
+      ribbon.dataset.id = entry.id;
+
+      const date = new Date(entry.date);
+      const formattedDate = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      const tagsHtml = (entry.tags || []).map(t => `<span class="tag">${t}</span>`).join('');
+
+      ribbon.innerHTML = `
+        <div class="drag-handle"></div>
+        <div class="ribbon-header">
+          <div class="ribbon-title">${entry.title}</div>
+          <div class="ribbon-date">${formattedDate}</div>
+        </div>
+        <div class="ribbon-mood">
+          <div class="mood-icon ${entry.mood}"></div>
+          <span>${entry.mood?.[0]?.toUpperCase() + entry.mood?.slice(1)}</span>
+        </div>
+        <div class="ribbon-tags">${tagsHtml}</div>
+      `;
+
+      ribbon.addEventListener('click', (e) => {
+        if (!e.target.closest('.drag-handle')) openEntryModal(entry.id);
+      });
+
+      const dragHandle = ribbon.querySelector('.drag-handle');
+      dragHandle.addEventListener('mousedown', (e) => startDrag(e, ribbon));
+
+      return ribbon;
+    }
+
+    function positionRibbonRandomly(ribbon, index) {
+      const containerRect = ribbonsContainer.getBoundingClientRect();
+      const ribbonRect = ribbon.getBoundingClientRect();
+      const maxX = containerRect.width  - ribbonRect.width  - 40;
+      const maxY = containerRect.height - ribbonRect.height - 40;
+
+      let x, y, attempts = 0, overlapping = true;
+      while (overlapping && attempts < 50) {
+        x = Math.random() * maxX;
+        y = Math.random() * maxY;
+        overlapping = false;
+
+        const existing = ribbonsContainer.querySelectorAll('.ribbon');
+        for (const el of existing) {
+          if (el !== ribbon) {
+            const r = el.getBoundingClientRect();
+            const off = { left: r.left - containerRect.left, top: r.top - containerRect.top };
+            if (
+              x < off.left + r.width  + 20 &&
+              x + ribbonRect.width  + 20 > off.left &&
+              y < off.top  + r.height + 20 &&
+              y + ribbonRect.height + 20 > off.top
+            ) { overlapping = true; break; }
+          }
+        }
+        attempts++;
+      }
+
+      const rotation = (Math.random() - 0.5) * 6;
+      const scale    = 0.9 + Math.random() * 0.2;
+
+      ribbon.style.left = `${x}px`;
+      ribbon.style.top  = `${y}px`;
+      ribbon.style.transform = `rotate(${rotation}deg) scale(${scale})`;
+      ribbon.style.zIndex    = Math.floor(Math.random() * 10);
+    }
+
+    // ===== Drag handlers
+    function startDrag(e, ribbon) {
+      e.preventDefault();
+      e.stopPropagation();
+      draggedElement = ribbon;
+      draggedElement.classList.add('dragging');
+
+      const rect = ribbon.getBoundingClientRect();
+      dragOffset.x = e.clientX - rect.left;
+      dragOffset.y = e.clientY - rect.top;
+
+      document.addEventListener('mousemove', drag);
+      document.addEventListener('mouseup', stopDrag);
+    }
+
+    function drag(e) {
+      if (!draggedElement) return;
+      const containerRect = ribbonsContainer.getBoundingClientRect();
+      const ribbonRect    = draggedElement.getBoundingClientRect();
+
+      let newX = e.clientX - containerRect.left - dragOffset.x;
+      let newY = e.clientY - containerRect.top  - dragOffset.y;
+
+      newX = Math.max(0, Math.min(newX, containerRect.width  - ribbonRect.width));
+      newY = Math.max(0, Math.min(newY, containerRect.height - ribbonRect.height));
+
+      draggedElement.style.left = `${newX}px`;
+      draggedElement.style.top  = `${newY}px`;
+    }
+
+    function stopDrag() {
+      if (draggedElement) {
+        draggedElement.classList.remove('dragging');
+        draggedElement = null;
+      }
+      document.removeEventListener('mousemove', drag);
+      document.removeEventListener('mouseup', stopDrag);
+    }
+
+    // ===== Modal + CRUD
+    function openEntryModal(entryId = null) {
+      currentEntryId = entryId;
+
+      if (entryId) {
+        const entry = entries.find(e => e.id === entryId);
+        if (entry) {
+          modalTitle.textContent = 'Edit Entry';
+          document.getElementById('title').value   = entry.title;
+          document.getElementById('date').value    = entry.date;
+          document.getElementById('mood').value    = entry.mood;
+          document.getElementById('tags').value    = (entry.tags || []).join(', ');
+          document.getElementById('content').value = entry.content || '';
+          deleteBtn.style.display = 'block';
+        }
+      } else {
+        modalTitle.textContent = 'New Entry';
+        journalForm.reset();
+        document.getElementById('date').value = today(0);
+        deleteBtn.style.display = 'none';
+      }
+      modalOverlay.classList.add('active');
+    }
+
+    function closeEntryModal() {
+      modalOverlay.classList.remove('active');
+      currentEntryId = null;
+    }
+
+    async function saveEntry(e) {
+      e.preventDefault();
+
+      const title = document.getElementById('title').value.trim();
+      if (!title) return showToast('Title is required');
+
+      const payload = {
+        title,
+        date: document.getElementById('date').value,
+        mood: document.getElementById('mood').value,
+        tags: (document.getElementById('tags').value.trim() || '')
+          .split(',').map(t => t.trim()).filter(Boolean),
+        content: document.getElementById('content').value.trim()
+      };
+
+      try {
+        if (currentEntryId) {
+          const updated = await dbUpdate(currentEntryId, payload);
+          entries = entries.map(e => e.id === currentEntryId ? updated : e);
+          showToast('Entry updated');
+        } else {
+          const created = await dbInsert(payload);
+          entries.unshift(created);
+          showToast('Entry created');
+        }
+        renderEntries();
+        closeEntryModal();
+      } catch (err) {
+        console.error(err);
+        showToast('Failed to save entry');
+      }
+    }
+
+    async function deleteEntry() {
+      if (!currentEntryId) return;
+      if (!confirm('Are you sure you want to delete this entry?')) return;
+
+      try {
+        await dbDelete(currentEntryId);
+        entries = entries.filter(e => e.id !== currentEntryId);
+        renderEntries();
+        closeEntryModal();
+        showToast('Entry deleted');
+      } catch (err) {
+        console.error(err);
+        showToast('Failed to delete entry');
+      }
+    }
+
+    // ===== Layout toggle
+    function toggleLayout() {
+      isRandomLayout = !isRandomLayout;
+      layoutToggle.classList.toggle('active', isRandomLayout);
+      ribbonsContainer.classList.toggle('random', isRandomLayout);
+
+      if (isRandomLayout) {
+        const ribbons = ribbonsContainer.querySelectorAll('.ribbon');
+        ribbons.forEach((ribbon, index) => {
+          const rect = ribbon.getBoundingClientRect();
+          const containerRect = ribbonsContainer.getBoundingClientRect();
+          ribbon.style.left = `${rect.left - containerRect.left}px`;
+          ribbon.style.top  = `${rect.top  - containerRect.top }px`;
+          setTimeout(() => positionRibbonRandomly(ribbon, index), 50);
+        });
+      } else {
+        renderEntries();
+      }
+    }
+
+    // ===== Events
+    fabBtn.addEventListener('click', () => openEntryModal());
+    closeModal.addEventListener('click', closeEntryModal);
+    cancelBtn.addEventListener('click', closeEntryModal);
+    deleteBtn.addEventListener('click', deleteEntry);
+    journalForm.addEventListener('submit', saveEntry);
+    layoutToggle.addEventListener('click', toggleLayout);
+
+    searchInput.addEventListener('input', renderEntries);
+    moodFilter.addEventListener('change', renderEntries);
+    sortOrder .addEventListener('change', renderEntries);
+
+    modalOverlay.addEventListener('click', (e) => { if (e.target === modalOverlay) closeEntryModal(); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && modalOverlay.classList.contains('active')) closeEntryModal(); });
+
+    // ===== Boot
+    createStarfield();
+    initializeEntries();
+  });
+</script>
+
+    <!-- <script>
         // Journal app functionality
         document.addEventListener('DOMContentLoaded', () => {
             // Initialize variables
@@ -1196,6 +1598,6 @@
             createStarfield();
             initializeEntries();
         });
-    </script>
+    </script> -->
 </body>
 </html>
