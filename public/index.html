@@ -778,10 +778,10 @@
       }
     }
 
-    // ===== Supabase helpers (table: journal_entries_web)
+    // ===== Supabase helpers (table: journal_entries)
     async function dbList() {
       const { data, error } = await window.supabase
-        .from('journal_entries_web')
+        .from('journal_entries')
         .select('*')
         .order('date', { ascending: false });
 
@@ -791,7 +791,7 @@
 
     async function dbInsert(entry) {
       const { data, error } = await window.supabase
-        .from('journal_entries_web')
+        .from('journal_entries')
         .insert(entry)
         .select()
         .single();
@@ -802,7 +802,7 @@
 
     async function dbUpdate(id, patch) {
       const { data, error } = await window.supabase
-        .from('journal_entries_web')
+        .from('journal_entries')
         .update(patch)
         .eq('id', id)
         .select()
@@ -814,7 +814,7 @@
 
     async function dbDelete(id) {
       const { error } = await window.supabase
-        .from('journal_entries_web')
+        .from('journal_entries')
         .delete()
         .eq('id', id);
 
